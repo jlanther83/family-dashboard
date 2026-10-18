@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Familie Dashboard - Philip, Emma & Familie</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ical.js/1.5.0/ical.min.js"></script>
+    <style>
+        body { background-color: #f1f5f9; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+        .card { background: white; border-radius: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -2px rgba(0,0,0,0.05); }
+        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    </style>
+</head>
+<body class="p-4 md:p-6 lg:p-8 text-slate-800">
+
+    <!-- HEADER -->
+    <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 bg-white p-5 rounded-2xl shadow-sm">
+        <div>
+            <h1 class="text-2xl md:text-3xl font-extrabold text-slate-900 flex items-center gap-3">
+                <span>🏠</span> Familieoverblik
+            </h1>
+            <p id="current-date" class="text-slate-500 font-medium capitalize mt-0.5"></p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3">
+            <!-- Filter knapper -->
+            <div class="bg-slate-100 p-1 rounded-xl flex gap-1 text-xs font-bold">
+                <button onclick="setFilter('all')" id="filter-all" class="px-3 py-1.5 rounded-lg bg-white text-slate-800 shadow-sm transition">Alle</button>
+                <button onclick="setFilter('Philip')" id="filter-Philip" class="px-3 py-1.5 rounded-lg text-blue-700 hover:bg-white/60 transition">👦 Philip</button>
+                <button onclick="setFilter('Emma')" id="filter-Emma" class="px-3 py-1.5 rounded-lg text-purple-700 hover:bg-white/60 transition">👧 Emma</button>
+                <button onclick="setFilter('Familie')" id="filter-Familie" class="px-3 py-1.5 rounded-lg text-indigo-700 hover:bg-white/60 transition">📅 Familie</button>
+            </div>
+
+            <span id="intra-auth-badge" class="bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5">
+                <i class="fa-solid fa-rotate fa-spin"></i> Synkroniserer...
+            </span>
+
+            <a href="https://www.icloud.com/notes/0aaIvppqBPu-NEAAYsdLRA-mQ" target="_blank" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold px-3.5 py-2.5 rounded-xl flex items-center gap-2 transition">
+                <i class="fa-brands fa-apple text-sm"></i> iCloud Indkøb
+            </a>
+
+            <button onclick="loadAllData()" id="refresh-btn" class="bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold px-4 py-2.5 rounded-xl flex items-center gap-2 transition">
+                <i id="refresh-icon" class="fa-solid fa-arrows-rotate"></i> Opdater alt
+            </button>
+        </div>
+    </header>
+
+    <!-- Status bar ved indlæsning -->
+    <div id="status-banner" class="hidden mb-6 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center justify-between">
+        <span id="status-text"><i class="fa-solid fa-circle-notch fa-spin mr-2"></i>Henter kalenderdata fra Google Kalender, SkoleIntra og KampKlar...</span>
+    </div>
+
+    <!-- MAIN DASHBOARD GRID -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+        <!-- 1. GOOGLE FAMILIEKALENDER -->
+        <section class="card p-5 border-t-4 border-indigo-500 flex flex-col h-[640px]">
+            <div class="flex justify-between items-center mb-3">
+                <div>
+                    <h2 class="text-lg font-bold flex items-center gap-2">
+                        <i class="fa-regular fa-calendar-check text-indigo-500"></i> Google Kalender
+                    </h2>
+                    <p class="text-xs text-slate-400">Familiekalender • Næste 30 dage</p>
+                </div>
+                <span id="google-count" class="bg-indigo-100 text-indigo-800 text-xs font-bold px-2.5 py-1 rounded-full">0</span>
+            </div>
+
+            <div id="google-container" class="space-y-2.5 overflow-y-auto custom-scroll pr-1 flex-1 mb-3">
+                <div class="text-center text-slate-400 text-sm py-10">Indlæser Google Kalender...</div>
+            </div>
+
+            <div class="pt-3 border-t border-slate-100">
+                <p class="text-[11px] font-bold text-slate-400 uppercase mb-2">Hurtige noter på skærmen</p>
+                <div class="flex gap-1.5 mb-2">
+                    <input type="text" id="event-title" placeholder="Tilføj huskeseddel..." 
+                        class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-indigo-500"
+                        onkeypress="if(event.key === 'Enter') addCustomEvent()">
+                    <button onclick="addCustomEvent()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition">+</button>
+                </div>
+                <div id="custom-events-list" class="space-y-1.5 max-h-28 overflow-y-auto custom-scroll pr-1"></div>
+            </div>
+        </section>
+
+        <!-- 2. SKOLEINTRA (LEKTIER, BESKEDER & SKEMA) -->
+        <section class="card p-5 border-t-4 border-orange-500 flex flex-col h-[640px]">
+            <div class="flex justify-between items-center mb-3">
+                <div>
+                    <h2 class="text-lg font-bold flex items-center gap-2">
+                        <i class="fa-solid fa-graduation-cap text-orange-500"></i> SkoleIntra
+                    </h2>
+                    <p class="text-xs text-slate-400">Viborg Realskole • Philip & Emma</p>
+                </div>
+                <a href="https://viborgrealskole.m.skoleintra.dk/Account/IdpLogin" target="_blank" class="text-xs text-orange-600 hover:underline font-semibold">
+                    Åbn Intra ↗
+                </a>
+            </div>
+
+            <!-- Faneblade i SkoleIntra-kolonnen -->
+            <div class="bg-slate-100 p-1 rounded-xl grid grid-cols-2 gap-1 text-xs font-bold mb-3">
+                <button onclick="setIntraTab('updates')" id="tab-updates" class="py-1.5 rounded-lg bg-white text-orange-700 shadow-sm transition">
+                    🔔 Lektier & Noter (<span id="intra-updates-count">0</span>)
+                </button>
+                <button onclick="setIntraTab('schedule')" id="tab-schedule" class="py-1.5 rounded-lg text-slate-600 hover:bg-white/50 transition">
+                    📚 Skoleskema (<span id="skole-count">0</span>)
+                </button>
+            </div>
+
+            <!-- Visning A: Lektier, Beskeder & Påmindelser -->
+            <div id="intra-updates-container" class="space-y-2.5 overflow-y-auto custom-scroll pr-1 flex-1">
+                <div class="text-center text-slate-400 text-xs py-12">Henter lektier, beskeder og påmindelser...</div>
+            </div>
+
+            <!-- Visning B: Almindeligt Skoleskema -->
+            <div id="skole-container" class="hidden space-y-2.5 overflow-y-auto custom-scroll pr-1 flex-1">
+                <div class="text-center text-slate-400 text-xs py-12">Indlæser skoleskema...</div>
+            </div>
+        </section>
+
+        <!-- 3. DBU KAMPKLAR -->
+        <section class="card p-5 border-t-4 border-red-600 flex flex-col h-[640px]">
+            <div class="flex justify-between items-center mb-4">
+                <div>
+                    <h2 class="text-lg font-bold flex items-center gap-2">
+                        <i class="fa-regular fa-futbol text-red-600"></i> KampKlar
+                    </h2>
+                    <p class="text-xs text-slate-400">Philip & Emma • Næste 21 dage</p>
+                </div>
+                <span id="kampklar-count" class="bg-red-100 text-red-800 text-xs font-bold px-2.5 py-1 rounded-full">0</span>
+            </div>
+
+            <div id="kampklar-container" class="space-y-3 overflow-y-auto custom-scroll pr-1 flex-1">
+                <div class="text-center text-slate-400 text-sm py-12">Indlæser fodboldaktiviteter...</div>
+            </div>
+        </section>
+
+        <!-- 4. INDKØBSLISTE & ICLOUD NOTE -->
+        <section class="card p-5 border-t-4 border-emerald-500 flex flex-col h-[640px]">
+            <div class="flex justify-between items-center mb-3">
+                <div>
+                    <h2 class="text-lg font-bold flex items-center gap-2">
+                        <i class="fa-solid fa-basket-shopping text-emerald-500"></i> Indkøbsliste
+                    </h2>
+                    <p class="text-xs text-slate-400">Apple Notes & Tjekliste</p>
+                </div>
+                <button onclick="clearCompletedGroceries()" class="text-xs text-slate-400 hover:text-red-500 font-medium transition">
+                    Ryd købte
+                </button>
+            </div>
+
+            <div class="bg-gradient-to-br from-emerald-50 to-teal-50 p-3.5 rounded-xl border border-emerald-200 mb-3 shadow-sm">
+                <span class="text-[10px] font-extrabold uppercase tracking-wider text-emerald-700 bg-emerald-200/70 px-2 py-0.5 rounded-full">
+                    <i class="fa-brands fa-apple mr-1"></i>Delt iCloud Note
+                </span>
+                <h3 class="text-xs font-bold text-slate-800 mt-1.5">Synkroniseret Apple Indkøbsliste</h3>
+                <div class="mt-2.5 flex gap-2">
+                    <a href="https://www.icloud.com/notes/0aaIvppqBPu-NEAAYsdLRA-mQ" target="_blank" 
+                        class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-center py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm">
+                        <i class="fa-solid fa-arrow-up-right-from-square"></i> Åbn iCloud Note
+                    </a>
+                    <button onclick="togglePasteModal()" class="bg-white hover:bg-slate-50 text-emerald-700 border border-emerald-200 py-1.5 px-2.5 rounded-lg text-xs font-semibold transition">
+                        <i class="fa-regular fa-paste"></i> Indsæt
+                    </button>
+                </div>
+
+                <div id="paste-box" class="hidden mt-2.5 pt-2.5 border-t border-emerald-200/60">
+                    <textarea id="bulk-grocery-input" rows="3" placeholder="Kopiér linjer fra iCloud Noter og sæt ind her..." 
+                        class="w-full p-2 text-xs rounded-lg border border-emerald-200 focus:outline-none focus:border-emerald-500 bg-white"></textarea>
+                    <button onclick="importBulkGroceries()" class="mt-1.5 w-full bg-slate-800 hover:bg-slate-700 text-white py-1.5 rounded-lg text-xs font-bold transition">
+                        Tilføj alle linjer
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex gap-2 mb-3">
+                <input type="text" id="grocery-input" placeholder="Tilføj vare hurtigt..." 
+                    class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-emerald-500"
+                    onkeypress="if(event.key === 'Enter') addGrocery()">
+                <button onclick="addGrocery()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-bold transition">
+                    <i class="fa-solid fa-plus"></i>
+                </button>
+            </div>
+
+            <ul id="grocery-list" class="space-y-2 overflow-y-auto custom-scroll pr-1 flex-1"></ul>
+        </section>
+
+    </div>
+
+    <script>
+        const FEEDS = [
+            {
+                id: 'familie-google',
+                child: 'Familie',
+                category: 'google',
+                colorClass: 'bg-indigo-50/70 border-indigo-200',
+                badgeClass: 'bg-indigo-600 text-white',
+                netlifyPath: '/api/google',
+                fallbackUrl: 'https://calendar.google.com/calendar/ical/jlanther83%40gmail.com/public/basic.ics'
+            },
+            {
+                id: 'philip-kampklar',
+                child: 'Philip',
+                category: 'kampklar',
+                colorClass: 'bg-blue-100 text-blue-800 border-blue-200',
+                badgeClass: 'bg-blue-600 text-white',
+                netlifyPath: null,
+                fallbackUrl: 'https://ical.dbu.dk/TeamActivities.ashx?userkey=bc9ce4f3-7d32-47a7-8ee6-922826f3bb42&clubkey=ba8b2c12-86f6-46cf-a17f-ca2fad1c4dd2&teamid=42&siteid=1'
+            },
+            {
+                id: 'emma-kampklar',
+                child: 'Emma',
+                category: 'kampklar',
+                colorClass: 'bg-purple-100 text-purple-800 border-purple-200',
+                badgeClass: 'bg-purple-600 text-white',
+                netlifyPath: null,
+                fallbackUrl: 'https://ical.dbu.dk/TeamActivities.ashx?userkey=bc9ce4f3-7d32-47a7-8ee6-922826f3bb42&clubkey=b1586c88-4157-4e02-bef5-d472137e6ce8&teamid=32&siteid=1'
+            },
+            {
+                id: 'philip-skole',
+                child: 'Philip',
+                category: 'skole',
+                colorClass: 'bg-blue-50 border-blue-200',
+                badgeClass: 'bg-blue-600 text-white',
+                netlifyPath: null,
+                fallbackUrl: 'https://viborgrealskole.m.skoleintra.dk/feed/GetFeed?type=Calendar&unifiedId=826103&culture=da-DK&hash=e9a1b5a4364bce6074a1d8be24e0e1cc'
+            },
+            {
+                id: 'emma-skole',
+                child: 'Emma',
+                category: 'skole',
+                colorClass: 'bg-purple-50 border-purple-200',
+                badgeClass: 'bg-purple-600 text-white',
+                netlifyPath: null,
+                fallbackUrl: 'https://viborgrealskole.m.skoleintra.dk/feed/GetFeed?type=Calendar&unifiedId=654403&culture=da-DK&hash=cc573e35fc37920f5500d1f74f0ac4e6'
+            }
+        ];
+
+        let allEvents = [];
+        let intraLoginItems = [];
+        let activeFilter = 'all';
+
+        const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        document.getElementById('current-date').innerText = new Date().toLocaleDateString('da-DK', dateOptions);
+
+        function setIntraTab(tab) {
+            const updatesBox = document.getElementById('intra-updates-container');
+            const scheduleBox = document.getElementById('skole-container');
+            const btnUpdates = document.getElementById('tab-updates');
+            const btnSchedule = document.getElementById('tab-schedule');
+
+            if (tab === 'updates') {
+                updatesBox.classList.remove('hidden');
+                scheduleBox.classList.add('hidden');
+                btnUpdates.className = 'py-1.5 rounded-lg bg-white text-orange-700 shadow-sm transition';
+                btnSchedule.className = 'py-1.5 rounded-lg text-slate-600 hover:bg-white/50 transition';
+            } else {
+                updatesBox.classList.add('hidden');
+                scheduleBox.classList.remove('hidden');
+                btnSchedule.className = 'py-1.5 rounded-lg bg-white text-orange-700 shadow-sm transition';
+                btnUpdates.className = 'py-1.5 rounded-lg text-slate-600 hover:bg-white/50 transition';
+            }
+        }
+
+        // Hjælpefunktion: Fetch med 6 sekunders timeout så ingen proxy kan hænge
+        async function fetchWithTimeout(url, timeoutMs = 6000) {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), timeoutMs);
+            try {
+                const res = await fetch(url, { signal: controller.signal, cache: 'no-store' });
+                clearTimeout(timer);
+                return res;
+            } catch (err) {
+                clearTimeout(timer);
+                throw err;
+            }
+        }
+
+        // Skudsikker hente-motor med 4 uafhængige metoder
+        async function fetchFeedData(feed) {
+            const cacheBuster = `&_cb=${Date.now()}`;
+            const targetUrl = feed.fallbackUrl;
+
+            // 1. Hvis der er en direkte Netlify-sti (f.eks. /api/google), prøv den først
+            if (feed.netlifyPath && window.location.protocol.startsWith('http')) {
+                try {
+                    const res = await fetchWithTimeout(feed.netlifyPath, 4000);
+                    if (res.ok) {
+                        const text = await res.text();
+                        if (text.includes('BEGIN:VCALENDAR')) return text;
+                    }
+                } catch (e) {}
+            }
+
+            // 2. Liste af 4 uafhængige CORS-proxies (inkl. JSON-baseret AllOrigins som aldrig blokeres)
+            const proxyAttempts = [
+                async () => {
+                    const res = await fetchWithTimeout(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}${cacheBuster}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.contents && data.contents.includes('BEGIN:VCALENDAR')) return data.contents;
+                    }
+                    throw new Error('AllOrigins JSON fejl');
+                },
+                async () => {
+                    const res = await fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`);
+                    if (res.ok) {
+                        const text = await res.text();
+                        if (text.includes('BEGIN:VCALENDAR')) return text;
+                    }
+                    throw new Error('AllOrigins Raw fejl');
+                },
+                async () => {
+                    const res = await fetchWithTimeout(`https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`);
+                    if (res.ok) {
+                        const text = await res.text();
+                        if (text.includes('BEGIN:VCALENDAR')) return text;
+                    }
+                    throw new Error('CorsProxy fejl');
+                },
+                async () => {
+                    const res = await fetchWithTimeout(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`);
+                    if (res.ok) {
+                        const text = await res.text();
+                        if (text.includes('BEGIN:VCALENDAR')) return text;
+                    }
+                    throw new Error('CodeTabs fejl');
+                }
+            ];
+
+            for (const attempt of proxyAttempts) {
+                try {
+                    const ics = await attempt();
+                    if (ics) return ics;
+                } catch (e) {
+                    // Går videre til næste proxy
+                }
+            }
+            throw new Error(`Kunne ikke hente ${feed.id}`);
+        }
+
+        // Hent Beskeder, Lektier og Påmindelser fra Netlify Function (hvis tilgængelig)
+        async function fetchIntraLoginData() {
+            const badge = document.getElementById('intra-auth-badge');
+            const isOnlineHost = window.location.protocol.startsWith('http');
+
+            try {
+                const res = await fetchWithTimeout('/.netlify/functions/intra', 6000);
+                if (!res.ok) throw new Error('Function ikke bygget');
+                const data = await res.json();
+
+                if (data.authenticated) {
+                    badge.className = 'bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5';
+                    badge.innerHTML = '<i class="fa-solid fa-circle-check"></i> Intra Login: Aktiv';
+                } else {
+                    badge.className = 'bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5';
+                    badge.innerHTML = '<i class="fa-solid fa-cloud-arrow-down"></i> Live Feeds: Aktiv';
+                }
+                intraLoginItems = data.items || [];
+            } catch (e) {
+                // Hvis man har brugt Netlify Drag & Drop uden Git-build, viser vi "Netlify Live Feeds: Aktiv" i stedet for "Kører lokalt"
+                if (isOnlineHost) {
+                    badge.className = 'bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5';
+                    badge.innerHTML = '<i class="fa-solid fa-circle-check"></i> Netlify Live Feeds: Aktiv';
+                } else {
+                    badge.className = 'bg-slate-100 text-slate-600 text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5';
+                    badge.innerHTML = '<i class="fa-solid fa-laptop"></i> Lokal visning';
+                }
+                intraLoginItems = [];
+            }
+        }
+
+        function parseIcsText(icsText, feedMeta) {
+            try {
+                const jcalData = ICAL.parse(icsText);
+                const comp = new ICAL.Component(jcalData);
+                const vevents = comp.getAllSubcomponents('vevent');
+                const parsedEvents = [];
+
+                const now = new Date();
+                const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                const in35Days = new Date(now.getTime() + 35 * 24 * 60 * 60 * 1000);
+
+                vevents.forEach(vevent => {
+                    try {
+                        const event = new ICAL.Event(vevent);
+                        if (event.isRecurring()) {
+                            const iterator = event.iterator();
+                            let next, count = 0;
+                            while ((next = iterator.next()) && count < 80) {
+                                count++;
+                                const occStart = next.toJSDate();
+                                if (occStart > in35Days) break;
+                                const durationMs = event.duration ? event.duration.toSeconds() * 1000 : 0;
+                                const occEnd = new Date(occStart.getTime() + durationMs);
+                                if (occEnd >= startOfToday) {
+                                    parsedEvents.push({
+                                        title: event.summary || 'Uden titel',
+                                        location: event.location || '',
+                                        description: event.description || '',
+                                        start: occStart,
+                                        end: occEnd,
+                                        isAllDay: next.isDate,
+                                        child: feedMeta.child,
+                                        category: feedMeta.category,
+                                        colorClass: feedMeta.colorClass,
+                                        badgeClass: feedMeta.badgeClass
+                                    });
+                                }
+                            }
+                        } else {
+                            const startDate = event.startDate.toJSDate();
+                            const endDate = event.endDate ? event.endDate.toJSDate() : startDate;
+                            if (endDate >= startOfToday && startDate <= in35Days) {
+                                parsedEvents.push({
+                                    title: event.summary || 'Uden titel',
+                                    location: event.location || '',
+                                    description: event.description || '',
+                                    start: startDate,
+                                    end: endDate,
+                                    isAllDay: event.startDate.isDate,
+                                    child: feedMeta.child,
+                                    category: feedMeta.category,
+                                    colorClass: feedMeta.colorClass,
+                                    badgeClass: feedMeta.badgeClass
+                                });
+                            }
+                        }
+                    } catch (innerErr) {}
+                });
+                return parsedEvents;
+            } catch (err) {
+                return [];
+            }
+        }
+
+        async function loadAllData() {
+            const banner = document.getElementById('status-banner');
+            const icon = document.getElementById('refresh-icon');
+            banner.classList.remove('hidden');
+            icon.classList.add('fa-spin');
+
+            allEvents = [];
+
+            const feedPromises = FEEDS.map(async (feed) => {
+                try {
+                    const icsText = await fetchFeedData(feed);
+                    const events = parseIcsText(icsText, feed);
+                    allEvents.push(...events);
+                } catch (error) {
+                    console.error(`Fejl på ${feed.id}:`, error);
+                }
+            });
+
+            await Promise.all([...feedPromises, fetchIntraLoginData()]);
+            allEvents.sort((a, b) => a.start - b.start);
+
+            renderFeeds();
+            banner.classList.add('hidden');
+            icon.classList.remove('fa-spin');
+        }
+
+        function formatEventDate(date, isAllDay) {
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const eventDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+            let dayStr = date.toLocaleDateString('da-DK', { weekday: 'short', day: 'numeric', month: 'short' });
+            if (eventDay.getTime() === today.getTime()) dayStr = 'I DAG';
+            else if (eventDay.getTime() === tomorrow.getTime()) dayStr = 'I MORGEN';
+
+            if (isAllDay) return `${dayStr} • Hele dagen`;
+            const timeStr = date.toLocaleTimeString('da-DK', { hour: '2-digit', minute: '2-digit' });
+            return `${dayStr} • kl. ${timeStr}`;
+        }
+
+        function renderFeeds() {
+            const now = new Date();
+            const in14Days = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+            const in21Days = new Date(now.getTime() + 21 * 24 * 60 * 60 * 1000);
+            const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+            const filtered = allEvents.filter(e => activeFilter === 'all' || e.child === activeFilter);
+
+            // 1. Google Kalender (Næste 30 dage)
+            const googleEvents = filtered.filter(e => e.category === 'google' && e.start <= in30Days);
+            const googleContainer = document.getElementById('google-container');
+            document.getElementById('google-count').innerText = googleEvents.length;
+
+            if (googleEvents.length === 0) {
+                googleContainer.innerHTML = `<div class="text-center text-slate-400 text-xs py-8">Ingen kommende aftaler de næste 30 dage.</div>`;
+            } else {
+                googleContainer.innerHTML = googleEvents.map(e => `
+                    <div class="p-3 rounded-xl border ${e.colorClass} transition hover:shadow-sm">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-[11px] font-bold uppercase tracking-wider text-indigo-700">${formatEventDate(e.start, e.isAllDay)}</span>
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${e.badgeClass}">📅 ${e.child}</span>
+                        </div>
+                        <p class="text-sm font-bold text-slate-800 leading-snug">${e.title}</p>
+                        ${e.location ? `<p class="text-xs text-slate-500 mt-1"><i class="fa-solid fa-location-dot mr-1"></i>${e.location}</p>` : ''}
+                    </div>
+                `).join('');
+            }
+
+            // 2A. SkoleIntra Skoleskema (Næste 14 dage)
+            const skoleEvents = filtered.filter(e => e.category === 'skole' && e.start <= in14Days);
+            const skoleContainer = document.getElementById('skole-container');
+            document.getElementById('skole-count').innerText = skoleEvents.length;
+
+            if (skoleEvents.length === 0) {
+                skoleContainer.innerHTML = `<div class="text-center text-slate-400 text-xs py-10">Ingen skema-aktiviteter de næste 14 dage.</div>`;
+            } else {
+                skoleContainer.innerHTML = skoleEvents.map(e => `
+                    <div class="p-3 rounded-xl border ${e.colorClass}">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-[11px] font-bold uppercase text-slate-500">${formatEventDate(e.start, e.isAllDay)}</span>
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${e.badgeClass}">${e.child}</span>
+                        </div>
+                        <p class="text-sm font-bold text-slate-800">${e.title}</p>
+                        ${e.description ? `<p class="text-xs text-slate-600 mt-1 whitespace-pre-line">${e.description}</p>` : ''}
+                    </div>
+                `).join('');
+            }
+
+            // 2B. SkoleIntra Lektier, Beskeder & Påmindelser
+            const loginFiltered = intraLoginItems.filter(item => activeFilter === 'all' || item.child === activeFilter);
+            const calendarHomework = skoleEvents
+                .filter(e => e.description && e.description.trim().length > 0)
+                .map(e => ({
+                    child: e.child,
+                    type: 'lektie',
+                    title: e.title,
+                    date: formatEventDate(e.start, e.isAllDay),
+                    body: e.description
+                }));
+
+            const combinedUpdates = [...loginFiltered, ...calendarHomework];
+            const updatesContainer = document.getElementById('intra-updates-container');
+            document.getElementById('intra-updates-count').innerText = combinedUpdates.length;
+
+            // Hvis der ikke er specifikke lektienoter endnu (f.eks. pga. weekend/ferie), skift automatisk til fanen Skoleskema hvis der er timer
+            if (combinedUpdates.length === 0 && skoleEvents.length > 0) {
+                setIntraTab('schedule');
+            }
+
+            if (combinedUpdates.length === 0) {
+                updatesContainer.innerHTML = `
+                    <div class="text-center text-slate-400 text-xs py-10 px-4">
+                        Ingen særskilte lektie-noter eller beskeder registreret på de kommende timer.
+                        <br><button onclick="setIntraTab('schedule')" class="mt-2 text-orange-600 font-bold underline">Se hele skoleskemaet (${skoleEvents.length} timer) →</button>
+                    </div>`;
+            } else {
+                updatesContainer.innerHTML = combinedUpdates.map(item => {
+                    const isPhilip = item.child === 'Philip';
+                    const badgeColor = isPhilip ? 'bg-blue-600 text-white' : 'bg-purple-600 text-white';
+                    const typeIcon = item.type === 'besked' ? '✉️ Besked' : (item.type === 'lektie' ? '📖 Lektie/Note' : '🔔 Påmindelse');
+                    const cardBg = item.type === 'besked' ? 'bg-amber-50/70 border-amber-200' : (isPhilip ? 'bg-blue-50/60 border-blue-200' : 'bg-purple-50/60 border-purple-200');
+
+                    return `
+                        <div class="p-3.5 rounded-xl border ${cardBg} shadow-sm">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-[10px] font-extrabold uppercase tracking-wider text-orange-700">
+                                    ${typeIcon} ${item.date ? '• ' + item.date : ''}
+                                </span>
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${badgeColor}">
+                                    ${item.child}
+                                </span>
+                            </div>
+                            <p class="text-sm font-bold text-slate-900">${item.title}</p>
+                            ${item.sender ? `<p class="text-[11px] font-semibold text-slate-500">Fra: ${item.sender}</p>` : ''}
+                            ${item.body ? `<p class="text-xs text-slate-700 mt-1 leading-relaxed whitespace-pre-line">${item.body}</p>` : ''}
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // 3. KampKlar (Næste 21 dage)
+            const kampEvents = filtered.filter(e => e.category === 'kampklar' && e.start <= in21Days);
+            const kampContainer = document.getElementById('kampklar-container');
+            document.getElementById('kampklar-count').innerText = kampEvents.length;
+
+            if (kampEvents.length === 0) {
+                kampContainer.innerHTML = `<div class="text-center text-slate-400 text-xs py-10">Ingen fodboldaktiviteter de næste 21 dage.</div>`;
+            } else {
+                kampContainer.innerHTML = kampEvents.map(e => `
+                    <div class="p-3.5 rounded-xl border bg-white border-slate-200 shadow-sm">
+                        <div class="flex justify-between items-center mb-1.5">
+                            <span class="text-xs font-extrabold text-red-600">${formatEventDate(e.start, e.isAllDay)}</span>
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${e.badgeClass}">⚽ ${e.child}</span>
+                        </div>
+                        <p class="text-sm font-bold text-slate-900">${e.title}</p>
+                        ${e.location ? `<p class="text-xs text-slate-500 mt-1"><i class="fa-solid fa-location-dot text-red-500 mr-1"></i>${e.location}</p>` : ''}
+                    </div>
+                `).join('');
+            }
+        }
+
+        function setFilter(filter) {
+            activeFilter = filter;
+            ['all', 'Philip', 'Emma', 'Familie'].forEach(f => {
+                const btn = document.getElementById(`filter-${f}`);
+                if (f === filter) btn.classList.add('bg-white', 'shadow-sm');
+                else btn.classList.remove('bg-white', 'shadow-sm');
+            });
+            renderFeeds();
+        }
+
+        // Huskesedler
+        let customEvents = JSON.parse(localStorage.getItem('familyCustomEvents')) || [
+            { title: 'Husk idrætstøj og fodboldstøvler' }
+        ];
+
+        function renderCustomEvents() {
+            const container = document.getElementById('custom-events-list');
+            container.innerHTML = customEvents.map((ev, idx) => `
+                <div class="flex justify-between items-center px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200/70">
+                    <p class="text-xs font-medium text-slate-700 truncate">${ev.title}</p>
+                    <button onclick="deleteCustomEvent(${idx})" class="text-slate-400 hover:text-red-500 text-xs ml-2"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            `).join('');
+            localStorage.setItem('familyCustomEvents', JSON.stringify(customEvents));
+        }
+
+        function addCustomEvent() {
+            const titleInput = document.getElementById('event-title');
+            if (titleInput.value.trim() !== '') {
+                customEvents.unshift({ title: titleInput.value.trim() });
+                titleInput.value = '';
+                renderCustomEvents();
+            }
+        }
+
+        function deleteCustomEvent(idx) {
+            customEvents.splice(idx, 1);
+            renderCustomEvents();
+        }
+
+        // Indkøbsliste
+        let groceries = JSON.parse(localStorage.getItem('familyGroceries')) || [
+            { text: 'Minimælk & Havregryn', done: false },
+            { text: 'Rugbrød og pålæg til madpakker', done: false },
+            { text: 'Cottage cheese & Æg', done: false },
+            { text: 'Bananer og æbler', done: false }
+        ];
+
+        function renderGroceries() {
+            const list = document.getElementById('grocery-list');
+            list.innerHTML = groceries.map((item, index) => `
+                <li onclick="toggleGrocery(${index})" class="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 border border-slate-100 cursor-pointer transition">
+                    <div class="flex items-center gap-3">
+                        <input type="checkbox" ${item.done ? 'checked' : ''} class="w-4 h-4 accent-emerald-500 rounded cursor-pointer">
+                        <span class="text-sm ${item.done ? 'line-through text-slate-400' : 'text-slate-700 font-medium'}">${item.text}</span>
+                    </div>
+                </li>
+            `).join('');
+            localStorage.setItem('familyGroceries', JSON.stringify(groceries));
+        }
+
+        function addGrocery() {
+            const input = document.getElementById('grocery-input');
+            if (input.value.trim() !== '') {
+                groceries.unshift({ text: input.value.trim(), done: false });
+                input.value = '';
+                renderGroceries();
+            }
+        }
+
+        function togglePasteModal() {
+            document.getElementById('paste-box').classList.toggle('hidden');
+        }
+
+        function importBulkGroceries() {
+            const textarea = document.getElementById('bulk-grocery-input');
+            const lines = textarea.value.split('\n').map(l => l.replace(/^[-*•\[\]xX\s]+/, '').trim()).filter(Boolean);
+            if (lines.length > 0) {
+                lines.reverse().forEach(line => groceries.unshift({ text: line, done: false }));
+                textarea.value = '';
+                document.getElementById('paste-box').classList.add('hidden');
+                renderGroceries();
+            }
+        }
+
+        function toggleGrocery(index) {
+            groceries[index].done = !groceries[index].done;
+            renderGroceries();
+        }
+
+        function clearCompletedGroceries() {
+            groceries = groceries.filter(item => !item.done);
+            renderGroceries();
+        }
+
+        renderCustomEvents();
+        renderGroceries();
+        loadAllData();
+        setInterval(loadAllData, 15 * 60 * 1000);
+    </script>
+</body>
+</html>

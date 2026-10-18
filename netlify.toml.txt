@@ -1,0 +1,14 @@
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+[[redirects]]
+  from = "/api/intra-login"
+  to = "/.netlify/functions/intra"
+  status = 200
+
+[[redirects]]
+  from = "/api/google"
+  to = "https://calendar.google.com/calendar/ical/jlanther83%40gmail.com/public/basic.ics"
+  status = 200
+  force = true
